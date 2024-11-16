@@ -1,0 +1,29 @@
+{
+    "clusters": [
+      {
+        "id": 1,
+        "shard": {
+          "range": "1-5",
+          "explicitIds": null
+        },
+        "servers": [
+          { "serverId": 1, "ip": "127.0.0.1", "port": 5001 },
+          { "serverId": 2, "ip": "127.0.0.2", "port": 5002 },
+          { "serverId": 3, "ip": "127.0.0.3", "port": 5003 }
+        ]
+      },
+      {
+        "id": 2,
+        "shard": {
+          "range": null,
+          "explicitIds": [101, 202, 345, 1045, 506]
+        },
+        "servers": [
+          { "serverId": 4, "ip": "127.0.0.4", "port": 5004 },
+          { "serverId": 5, "ip": "127.0.0.5", "port": 5005 },
+          { "serverId": 6, "ip": "127.0.0.6", "port": 5006 }
+        ]
+      }
+    ]
+  }
+  

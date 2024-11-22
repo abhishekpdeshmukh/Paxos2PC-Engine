@@ -170,27 +170,39 @@ func handleCrossShardTransaction(txn *pb.Transaction, clusterIDToLeaderServerID 
 func sendIntraShardTransaction(txn *pb.Transaction, clusterIDToLeaderServerID map[int]int) {
 	// Get shard for the sender (since it's intra-shard, sender and receiver are in the same shard)
 	shardID := dataItemToCluster[int(txn.Sender)]
-	server := clusterToServers[shardID][0] // Assuming first server
+	// Use the leader server ID for this shard
+	leaderServerID := clusterIDToLeaderServerID[shardID]
+
+	// Get the server info
+	var leaderServer Server
+	servers := clusterToServers[shardID]
+	for _, server := range servers {
+		if server.ServerID == leaderServerID {
+			leaderServer = server
+			break
+		}
+	}
 
 	// Set up RPC connection
-	client, ctx, conn := setUpClientServerRPC(server.ServerID)
-	defer conn.Close()
 
-	// Send the transaction directly
-	fmt.Println("Sending IntraShard Trnasaction")
-	resp, err := client.IntraShardTransaction(ctx, txn)
-	if err != nil {
-		log.Printf("Error sending intra-shard transaction: %v", err)
-		return
-	}
+	go func() {
+		client, ctx, conn := setUpClientServerRPC(leaderServer.ServerID)
+		fmt.Println("Sending to Leader ", leaderServer.ServerID)
+		defer conn.Close()
+		fmt.Println("Sending IntraShard Transaction")
+		resp, err := client.IntraShardTransaction(ctx, txn)
+		if err != nil {
+			log.Printf("Error sending intra-shard transaction: %v", err)
+			return
+		}
 
-	if resp.Success {
-		fmt.Printf("Intra-shard transaction %d committed successfully.\n", txn.Id)
-	} else {
-		fmt.Printf("Intra-shard transaction %d failed: %s\n", txn.Id, resp.Message)
-	}
+		if resp.Success {
+			fmt.Printf("Intra-shard transaction %d committed successfully.\n", txn.Id)
+		} else {
+			fmt.Printf("Intra-shard transaction %d failed: %s\n", txn.Id, resp.Message)
+		}
+	}()
 }
-
 func parseLeaders(leadersStr string) []int {
 	// Similar to parseLiveServers
 	leadersStr = strings.Trim(leadersStr, "[]")

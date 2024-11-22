@@ -12,11 +12,14 @@ var clusterToServers = make(map[int][]Server)
 var transactionSets []TransactionSet
 var currentSetIndex int
 var globalTransactionID = 0
+var serverIDToClusterID = make(map[int]int)
+var clusterIDs []int
 
 type TransactionSet struct {
 	setID        int
 	transactions []*pb.Transaction
 	liveServers  []int
+	leaders      []int // Added leaders field
 }
 
 // Parse the CSV records

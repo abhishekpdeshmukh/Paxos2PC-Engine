@@ -20,24 +20,30 @@ func sendNextTransactionSet() {
 	currentSet := transactionSets[currentSetIndex]
 	fmt.Printf("Sending transactions for Set Number: %d\n", currentSet.setID)
 
+	// Build mapping from cluster IDs to leader server IDs
+	clusterIDToLeaderServerID := make(map[int]int)
+	for _, leaderServerID := range currentSet.leaders {
+		clusterID := serverIDToClusterID[leaderServerID]
+		clusterIDToLeaderServerID[clusterID] = leaderServerID
+	}
+
 	// Placeholder: Kill servers not in the live set
 	killInactiveServers(currentSet.liveServers)
 
 	// Placeholder: Revive servers in the live set
-	fmt.Println(currentSet.liveServers)
 	reviveActiveServers(currentSet.liveServers)
 
-	// Placeholder: Send transactions via RPC
+	// Send transactions via RPC
 	for _, txn := range currentSet.transactions {
 		fmt.Printf("Processing transaction: Sender: %d, Receiver: %d, Amount: %d\n",
 			txn.Sender, txn.Receiver, txn.Amount)
 		go func(txn *pb.Transaction) {
 			if isCrossShard(txn) {
 				fmt.Println("Processing CROSS Shard transaction:", txn)
-				handleCrossShardTransaction(txn)
+				handleCrossShardTransaction(txn, clusterIDToLeaderServerID)
 			} else {
 				fmt.Println("Processing INTRA Shard transaction:", txn)
-				sendIntraShardTransaction(txn)
+				sendIntraShardTransaction(txn, clusterIDToLeaderServerID)
 			}
 		}(txn)
 	}
@@ -67,13 +73,17 @@ func parseProtoTransaction(transactionStr string) *pb.Transaction {
 
 // Helper function to parse live servers
 func parseLiveServers(liveServersStr string) []int {
+	fmt.Println(liveServersStr)
 	liveServersStr = strings.Trim(liveServersStr, "[]")
 	parts := strings.Split(liveServersStr, ",")
 	var liveServers []int
 	for _, part := range parts {
-		server, _ := strconv.Atoi(strings.TrimSpace(part))
+		// fmt.Println(string(strings.TrimSpace(part)[1]))
+		server, _ := strconv.Atoi(string(strings.TrimSpace(part)[1]))
 		liveServers = append(liveServers, server)
 	}
+	fmt.Println("These are the live servers I have ")
+	fmt.Println(liveServers)
 	return liveServers
 }
 
@@ -84,7 +94,7 @@ func parseRange(rangeStr string) (int, int) {
 	return start, end
 }
 
-func handleCrossShardTransaction(txn *pb.Transaction) {
+func handleCrossShardTransaction(txn *pb.Transaction, clusterIDToLeaderServerID map[int]int) {
 	// Get shards for sender and receiver
 	// senderShardID := dataItemToCluster[int(txn.Sender)]
 	// receiverShardID := dataItemToCluster[int(txn.Receiver)]
@@ -157,7 +167,7 @@ func handleCrossShardTransaction(txn *pb.Transaction) {
 	// }
 }
 
-func sendIntraShardTransaction(txn *pb.Transaction) {
+func sendIntraShardTransaction(txn *pb.Transaction, clusterIDToLeaderServerID map[int]int) {
 	// Get shard for the sender (since it's intra-shard, sender and receiver are in the same shard)
 	shardID := dataItemToCluster[int(txn.Sender)]
 	server := clusterToServers[shardID][0] // Assuming first server
@@ -179,4 +189,23 @@ func sendIntraShardTransaction(txn *pb.Transaction) {
 	} else {
 		fmt.Printf("Intra-shard transaction %d failed: %s\n", txn.Id, resp.Message)
 	}
+}
+
+func parseLeaders(leadersStr string) []int {
+	// Similar to parseLiveServers
+	leadersStr = strings.Trim(leadersStr, "[]")
+	parts := strings.Split(leadersStr, ",")
+	var leaders []int
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "S") {
+			leaderIDStr := strings.TrimPrefix(part, "S")
+			leaderID, _ := strconv.Atoi(leaderIDStr)
+			leaders = append(leaders, leaderID)
+		} else {
+			leaderID, _ := strconv.Atoi(part)
+			leaders = append(leaders, leaderID)
+		}
+	}
+	return leaders
 }

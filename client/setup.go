@@ -10,6 +10,7 @@ import (
 	pb "github.com/abhishekpdeshmukh/PAXOS2PC-ENGINE/proto"
 )
 
+// Read transactions from CSV
 func readTransactions() {
 	// Open the CSV file
 	file, err := os.Open("../test.csv")
@@ -48,7 +49,18 @@ func readTransactions() {
 			currentSet.transactions = []*pb.Transaction{transaction}
 
 			// Parse the live servers
-			currentSet.liveServers = parseLiveServers(record[2])
+			if len(record) > 2 && record[2] != "" {
+				currentSet.liveServers = parseLiveServers(record[2])
+			} else {
+				currentSet.liveServers = []int{} // Empty
+			}
+
+			// Parse the leaders
+			if len(record) > 3 && record[3] != "" {
+				currentSet.leaders = parseLeaders(record[3])
+			} else {
+				currentSet.leaders = []int{}
+			}
 		} else {
 			// Parse subsequent transactions for the current set
 			transaction := parseProtoTransaction(record[1])
@@ -62,17 +74,19 @@ func readTransactions() {
 	}
 
 	// Example: Print the parsed sets
-	// for _, set := range transactionSets {
-	// 	fmt.Printf("Set Number: %d\n", set.setID)
-	// 	fmt.Printf("Live Servers: %v\n", set.liveServers)
-	// 	fmt.Println("Transactions:")
-	// 	for _, txn := range set.transactions {
-	// 		fmt.Printf("Sender: %d, Receiver: %d, Amount: %d\n", txn.Sender, txn.Receiver, txn.Amount)
-	// 	}
-	// 	fmt.Println()
-	// }
-}
 
+	for _, set := range transactionSets {
+		fmt.Printf("Set Number: %d\n", set.setID)
+		fmt.Printf("Live Servers: %v\n", set.liveServers)
+		fmt.Printf("Leaders: %v\n", set.leaders)
+		fmt.Println("Transactions:")
+		for _, txn := range set.transactions {
+			fmt.Printf("Sender: %d, Receiver: %d, Amount: %d\n", txn.Sender, txn.Receiver, txn.Amount)
+		}
+		fmt.Println()
+	}
+
+}
 func readConfig(configFile string) {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
@@ -87,8 +101,15 @@ func readConfig(configFile string) {
 		fmt.Println("Error parsing JSON:", err)
 		return
 	}
+
 	for _, cluster := range config.Clusters {
 		clusterID := cluster.ID
+		clusterIDs = append(clusterIDs, clusterID)
+
+		// Map server IDs to cluster IDs
+		for _, server := range cluster.Servers {
+			serverIDToClusterID[server.ServerID] = clusterID
+		}
 
 		// Populate dataItemToCluster
 		if cluster.Shard.Range != "" {
@@ -102,9 +123,8 @@ func readConfig(configFile string) {
 				dataItemToCluster[id] = clusterID
 			}
 		}
-		
+
 		// Populate clusterToServers
 		clusterToServers[clusterID] = cluster.Servers
 	}
-
 }

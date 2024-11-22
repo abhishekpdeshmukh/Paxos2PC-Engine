@@ -26,13 +26,13 @@ foreach ($cluster in $CLUSTERS) {
     }
 
     $SERVERS = $cluster.servers
-
+    $SERVER_IDS = ($cluster.servers | ForEach-Object { $_.serverId }) -join ','
     foreach ($server in $SERVERS) {
         $SERVER_ID = $server.serverId
         $IP = $server.ip
         $PORT = $server.port
 
         # Spawn the server process with the shard items
-        Start-Process "powershell" -ArgumentList "-NoExit", "-Command", "go run . --clusterId $CLUSTER_ID --serverId $SERVER_ID --ip $IP --port $PORT --shardItems '$SHARD_ITEMS'"
+        Start-Process "powershell" -ArgumentList "-NoExit", "-Command", "go run . --clusterId $CLUSTER_ID --serverId $SERVER_ID --ip $IP --port $PORT --shardItems '$SHARD_ITEMS' --serverIds '$SERVER_IDS'"
     }
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 func setUpServerServerSender(id int) (pb.PaxosServiceClient, context.Context, *grpc.ClientConn) {
 	// //fmt.Println("Setting Up RPC Reciever")
 	// conn, err := grpc.Dial("localhost:"+strconv.Itoa((500+id+30)), grpc.WithInsecure(), grpc.WithBlock())
-	conn, err := grpc.Dial("localhost:"+strconv.Itoa((500+id+30)), grpc.WithInsecure())
+	conn, err := grpc.Dial("localhost:"+strconv.Itoa((5000+id+30)), grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Could not connect: %v", err)
 	}
@@ -38,6 +39,8 @@ func setUpClientServerReceiver(server *Server) {
 	}
 }
 func setUpServerServerReceiver(server *Server) {
+	fmt.Println("Setting Up SERVER to SERVER communication")
+	fmt.Println(5000+server.ServerID+10)
 	lis, err := net.Listen("tcp", ":"+strconv.Itoa(5000+server.ServerID+30))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)

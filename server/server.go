@@ -80,11 +80,13 @@ func main() {
 		return
 	}
 	shardItemsList := strings.Split(shardItems, " ")
-	x := strings.Split(servers, " ")
+	x := strings.Split(servers, ",")
 	for _, item := range x {
+		fmt.Println("ITem")
+		fmt.Println(item)
 		server_id, err := strconv.Atoi(strings.TrimSpace(item))
 		if err != nil {
-			fmt.Println("Invalid serverID", item)
+			fmt.Println("Invalid serverIDs", item)
 			continue
 		}
 		serverList = append(serverList, server_id)
@@ -119,8 +121,9 @@ func main() {
 	// Print the filled struct
 	// fmt.Printf("Server Struct: %+v\n", server)
 	go StartTransactionProcessor(server)
-	printServer(server)
-	setUpClientServerReceiver(server)
+	// printServer(server)
+	go setUpServerServerReceiver(server)
+	go setUpClientServerReceiver(server)
 
 	fmt.Println("HIIIIIIIII")
 	// Infinite loop to keep the program running
@@ -146,11 +149,21 @@ func (server *Server) Revive(ctx context.Context, req *emptypb.Empty) (*emptypb.
 
 func (server *Server) Prepare(ctx context.Context, req *pb.PrepareRequest) (*pb.PromiseResponse, error) {
 	fmt.Println("Prepare alay ")
-	return &pb.PromiseResponse{
-		BallotNumber: req.Ballot,
-		AcceptNum:    nil,
-		Accept_Val:   nil,
-	}, nil
+	if req.Ballot.BallotNum >= int32(server.ballotNum) {
+		if int(req.LogSize) > len(server.transactionLog) {
+			return &pb.PromiseResponse{
+				BallotNumber: req.Ballot,
+				AcceptNum:    nil,
+				Accept_Val:   nil,
+			}, nil
+		} else {
+			return &pb.PromiseResponse{
+				BallotNumber: req.Ballot,
+				AcceptNum:    nil,
+				Accept_Val:   nil,
+			}, nil
+		}
+	}
 }
 
 // Implement IntraShardTransaction RPC

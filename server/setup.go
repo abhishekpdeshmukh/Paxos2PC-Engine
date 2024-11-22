@@ -53,11 +53,15 @@ func printServer(server *Server) {
 	fmt.Printf("Shard Items : %s\n", server.ShardItems)
 	fmt.Printf("Is Active   : %t\n", server.isActive)
 	fmt.Println("Lock Map    :")
-	for shard, locked := range server.lockMap {
-		fmt.Printf("  - Shard %d: Locked = %t\n", shard, locked)
-	}
-	for shard, balance := range server.balance {
-		fmt.Printf("  - Shard %d: Balance = %d\n", shard, balance)
+	// for shard, locked := range server.lockMap {
+	// 	fmt.Printf("  - Shard %d: Locked = %t\n", shard, locked)
+	// }
+	// for shard, balance := range server.balance {
+	// 	fmt.Printf("  - Shard %d: Balance = %d\n", shard, balance)
+	// }
+	fmt.Println(server.servers)
+	for _, serverid := range server.servers {
+		fmt.Printf("Server ID on this Clusters ", serverid)
 	}
 	fmt.Println("---------------------------------------\n")
 }

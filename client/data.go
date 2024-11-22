@@ -20,3 +20,6 @@ type Cluster struct {
 type Config struct {
 	Clusters []Cluster `json:"clusters"` // List of clusters
 }
+type Reply struct {
+	Yes bool
+}

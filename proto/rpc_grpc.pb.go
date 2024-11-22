@@ -20,8 +20,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ClientServerConnection_Kill_FullMethodName   = "/rpc.ClientServerConnection/Kill"
-	ClientServerConnection_Revive_FullMethodName = "/rpc.ClientServerConnection/Revive"
+	ClientServerConnection_Kill_FullMethodName                  = "/rpc.ClientServerConnection/Kill"
+	ClientServerConnection_Revive_FullMethodName                = "/rpc.ClientServerConnection/Revive"
+	ClientServerConnection_IntraShardTransaction_FullMethodName = "/rpc.ClientServerConnection/IntraShardTransaction"
 )
 
 // ClientServerConnectionClient is the client API for ClientServerConnection service.
@@ -30,6 +31,10 @@ const (
 type ClientServerConnectionClient interface {
 	Kill(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	Revive(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	// rpc Prepare(ClientPrepare) returns (ClientPrepareResponse) {}
+	// rpc Commit(ClientCommit) returns (google.protobuf.Empty) {}
+	// rpc Abort(ClientAbort) returns (google.protobuf.Empty) {}
+	IntraShardTransaction(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*ClientTransactionResponse, error)
 }
 
 type clientServerConnectionClient struct {
@@ -60,12 +65,26 @@ func (c *clientServerConnectionClient) Revive(ctx context.Context, in *empty.Emp
 	return out, nil
 }
 
+func (c *clientServerConnectionClient) IntraShardTransaction(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*ClientTransactionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientTransactionResponse)
+	err := c.cc.Invoke(ctx, ClientServerConnection_IntraShardTransaction_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ClientServerConnectionServer is the server API for ClientServerConnection service.
 // All implementations must embed UnimplementedClientServerConnectionServer
 // for forward compatibility.
 type ClientServerConnectionServer interface {
 	Kill(context.Context, *empty.Empty) (*empty.Empty, error)
 	Revive(context.Context, *empty.Empty) (*empty.Empty, error)
+	// rpc Prepare(ClientPrepare) returns (ClientPrepareResponse) {}
+	// rpc Commit(ClientCommit) returns (google.protobuf.Empty) {}
+	// rpc Abort(ClientAbort) returns (google.protobuf.Empty) {}
+	IntraShardTransaction(context.Context, *Transaction) (*ClientTransactionResponse, error)
 	mustEmbedUnimplementedClientServerConnectionServer()
 }
 
@@ -81,6 +100,9 @@ func (UnimplementedClientServerConnectionServer) Kill(context.Context, *empty.Em
 }
 func (UnimplementedClientServerConnectionServer) Revive(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Revive not implemented")
+}
+func (UnimplementedClientServerConnectionServer) IntraShardTransaction(context.Context, *Transaction) (*ClientTransactionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IntraShardTransaction not implemented")
 }
 func (UnimplementedClientServerConnectionServer) mustEmbedUnimplementedClientServerConnectionServer() {
 }
@@ -140,6 +162,24 @@ func _ClientServerConnection_Revive_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClientServerConnection_IntraShardTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Transaction)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServerConnectionServer).IntraShardTransaction(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientServerConnection_IntraShardTransaction_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServerConnectionServer).IntraShardTransaction(ctx, req.(*Transaction))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ClientServerConnection_ServiceDesc is the grpc.ServiceDesc for ClientServerConnection service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,6 +194,112 @@ var ClientServerConnection_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Revive",
 			Handler:    _ClientServerConnection_Revive_Handler,
+		},
+		{
+			MethodName: "IntraShardTransaction",
+			Handler:    _ClientServerConnection_IntraShardTransaction_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "rpc.proto",
+}
+
+const (
+	PaxosService_Prepare_FullMethodName = "/rpc.PaxosService/Prepare"
+)
+
+// PaxosServiceClient is the client API for PaxosService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type PaxosServiceClient interface {
+	Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*PromiseResponse, error)
+}
+
+type paxosServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPaxosServiceClient(cc grpc.ClientConnInterface) PaxosServiceClient {
+	return &paxosServiceClient{cc}
+}
+
+func (c *paxosServiceClient) Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*PromiseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromiseResponse)
+	err := c.cc.Invoke(ctx, PaxosService_Prepare_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PaxosServiceServer is the server API for PaxosService service.
+// All implementations must embed UnimplementedPaxosServiceServer
+// for forward compatibility.
+type PaxosServiceServer interface {
+	Prepare(context.Context, *PrepareRequest) (*PromiseResponse, error)
+	mustEmbedUnimplementedPaxosServiceServer()
+}
+
+// UnimplementedPaxosServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedPaxosServiceServer struct{}
+
+func (UnimplementedPaxosServiceServer) Prepare(context.Context, *PrepareRequest) (*PromiseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Prepare not implemented")
+}
+func (UnimplementedPaxosServiceServer) mustEmbedUnimplementedPaxosServiceServer() {}
+func (UnimplementedPaxosServiceServer) testEmbeddedByValue()                      {}
+
+// UnsafePaxosServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PaxosServiceServer will
+// result in compilation errors.
+type UnsafePaxosServiceServer interface {
+	mustEmbedUnimplementedPaxosServiceServer()
+}
+
+func RegisterPaxosServiceServer(s grpc.ServiceRegistrar, srv PaxosServiceServer) {
+	// If the following call pancis, it indicates UnimplementedPaxosServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&PaxosService_ServiceDesc, srv)
+}
+
+func _PaxosService_Prepare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PrepareRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaxosServiceServer).Prepare(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaxosService_Prepare_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaxosServiceServer).Prepare(ctx, req.(*PrepareRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PaxosService_ServiceDesc is the grpc.ServiceDesc for PaxosService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PaxosService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "rpc.PaxosService",
+	HandlerType: (*PaxosServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Prepare",
+			Handler:    _PaxosService_Prepare_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

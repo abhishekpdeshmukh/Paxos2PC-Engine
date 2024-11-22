@@ -3,7 +3,7 @@
       {
         "id": 1,
         "shard": {
-          "range": "1-5",
+          "range": "1-1000",
           "explicitIds": null
         },
         "servers": [
@@ -15,13 +15,25 @@
       {
         "id": 2,
         "shard": {
-          "range": null,
-          "explicitIds": [101, 202, 345, 1045, 506]
+          "range": "1001-2000",
+          "explicitIds": null
         },
         "servers": [
           { "serverId": 4, "ip": "127.0.0.4", "port": 5004 },
           { "serverId": 5, "ip": "127.0.0.5", "port": 5005 },
           { "serverId": 6, "ip": "127.0.0.6", "port": 5006 }
+        ]
+      },
+      {
+        "id": 3,
+        "shard": {
+          "range": "2001-3000",
+          "explicitIds": null
+        },
+        "servers": [
+          { "serverId": 7, "ip": "127.0.0.4", "port": 5007 },
+          { "serverId": 8, "ip": "127.0.0.5", "port": 5008 },
+          { "serverId": 9, "ip": "127.0.0.6", "port": 5009 }
         ]
       }
     ]

@@ -13,12 +13,22 @@ for cluster in $CLUSTERS; do
     SERVER_ID=$(echo $server | jq '.serverId')
     PORT=$((5000 + SERVER_ID))  # Calculate the port number
 
-    # Send an RPC request to terminate the server
-    echo "Killing server $SERVER_ID at localhost:$PORT..."
-    
-    # Placeholder for the actual RPC call to kill the server
-    # Replace this line with the actual command to send the RPC
-    # For example, you could use a curl command or a custom Go program
-    curl -X POST http://localhost:$PORT/kill || echo "Failed to kill server $SERVER_ID at localhost:$PORT"
+    # Find the PID of the process running on the given port
+    PID=$(lsof -t -i :"$PORT")
+
+    if [ -n "$PID" ]; then
+      # Kill the process running on the port
+      echo "Killing server $SERVER_ID running on port $PORT with PID $PID..."
+      kill -9 "$PID" || echo "Failed to kill server $SERVER_ID with PID $PID"
+
+      # Find the parent terminal process and close it
+      TERMINAL_PID=$(ps -o ppid= -p "$PID" | tr -d ' ')
+      if [ -n "$TERMINAL_PID" ]; then
+        echo "Closing terminal with PID $TERMINAL_PID..."
+        kill -9 "$TERMINAL_PID" || echo "Failed to close terminal with PID $TERMINAL_PID"
+      fi
+    else
+      echo "No server found running on port $PORT for server $SERVER_ID"
+    fi
   done
 done

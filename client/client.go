@@ -11,6 +11,7 @@ var dataItemToCluster = make(map[int]int)
 var clusterToServers = make(map[int][]Server)
 var transactionSets []TransactionSet
 var currentSetIndex int
+var globalTransactionID = 0
 
 type TransactionSet struct {
 	setID        int
@@ -89,7 +90,7 @@ func reviveActiveServers(liveServers []int) {
 	// Placeholder logic: You would implement the RPC call to revive servers here
 	// e.g., for each server in liveServers, call reviveServerRPC(serverID)
 
-	for i := range liveServers {
+	for _, i := range liveServers {
 		c, ctx, conn := setUpClientServerRPC(i)
 		c.Revive(ctx, &emptypb.Empty{})
 		conn.Close()

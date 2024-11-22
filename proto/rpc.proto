@@ -8,13 +8,85 @@ import "google/protobuf/empty.proto";
 service ClientServerConnection {
     rpc Kill(google.protobuf.Empty) returns (google.protobuf.Empty) {}
     rpc Revive(google.protobuf.Empty)returns(google.protobuf.Empty){}
+    // rpc Prepare(ClientPrepare) returns (ClientPrepareResponse) {}
+    // rpc Commit(ClientCommit) returns (google.protobuf.Empty) {}
+    // rpc Abort(ClientAbort) returns (google.protobuf.Empty) {}
+    rpc IntraShardTransaction(Transaction) returns (ClientTransactionResponse) {}
+}
+service PaxosService {
+    rpc Prepare(PrepareRequest) returns (PromiseResponse){}
+    // rpc Accept(AcceptRequest) returns (AcceptedResponse){}
+    // rpc Commit(CommitRequest) returns (CommitedResponse){}
+    // rpc RequestCommitBlock (CommitBlockRequest) returns (CommitBlockResponse){};
+}
+
+
+message Ballot {
+    int32 ballotNum = 1;
+    int32 nodeID = 2;
+}
+
+message CommitRequest{
+    Ballot ballot_number =1;
+}
+message CommitedResponse {
+    bool success = 1;
+}
+message PrepareRequest {
+    Ballot ballot = 1;
+    TransactionRequest transaction =2;
+    int32 LogSize =3;
+}
+
+message PromiseResponse {
+    Ballot ballot_number = 1;  // The ballot number n sent by the proposer
+    Ballot accept_num = 2;     // The latest accepted ballot number
+    repeated TransactionRequest accept_Val = 3;    // The latest accepted value (e.g., a set of transactions)
+    int32 logsize =4;
+}
+
+  message AcceptRequest {
+    int32 proposalNumber = 1;  // The ballot number n for the proposal
+    repeated TransactionRequest value = 2;          // The proposed value (e.g., a set of transactions)
+}
+
+message TransactionRequest{
+    int32 Id =2;
+    int32 From =3;
+    int32 To =4;
+    int32 Amount =5;
+}
+message AcceptedResponse {
+    int32 proposalNumber = 1;  // The ballot number n for the proposal
+    bool success = 2;          // Indicates whether the proposal was accepted
 }
 
 message Transaction {
-    int32 sender = 1;
-    int32 receiver = 2;
-    int32 amount = 3;
+    int32 id =1;
+    int32 sender = 2;
+    int32 receiver = 3;
+    int32 amount = 4;
 }
 
+// Messages for 2PC protocol
+message ClientPrepare {
+    Transaction transaction = 1;
+}
 
+message ClientPrepareResponse {
+    bool canCommit = 1;
+}
 
+message ClientCommit {
+    int32 transactionId = 1;
+}
+
+message ClientAbort {
+    int32 transactionId = 1;
+}
+
+// Response for intra-shard transaction
+message ClientTransactionResponse {
+    bool success = 1;
+    string message = 2;
+}

@@ -32,8 +32,9 @@ type Server struct {
 	servers          []int
 	balance          map[int]int
 	transactionQueue chan *TransactionRequest
-	transactionLog   map[int32]*TransactionState
-	ballotNum        int
+	// transactionLog   map[int32]*TransactionState
+	transactionLog []*pb.TransactionRequest
+	ballotNum      int
 }
 
 func main() {
@@ -112,10 +113,11 @@ func main() {
 		lockMap:          tempMap,
 		isActive:         true,
 		transactionQueue: make(chan *TransactionRequest, 100), // Buffer size as needed
-		transactionLog:   make(map[int32]*TransactionState),
-		balance:          temp2Map,
-		servers:          serverList,
-		ballotNum:        0,
+		// transactionLog:   make(map[int32]*TransactionState),
+		transactionLog: make([]*pb.TransactionRequest, 100),
+		balance:        temp2Map,
+		servers:        serverList,
+		ballotNum:      0,
 	}
 
 	// Print the filled struct
@@ -155,15 +157,18 @@ func (server *Server) Prepare(ctx context.Context, req *pb.PrepareRequest) (*pb.
 				BallotNumber: req.Ballot,
 				AcceptNum:    nil,
 				Accept_Val:   nil,
+				Lag:          true,
 			}, nil
 		} else {
 			return &pb.PromiseResponse{
 				BallotNumber: req.Ballot,
 				AcceptNum:    nil,
 				Accept_Val:   nil,
+				Lag:          false,
 			}, nil
 		}
 	}
+	return &pb.PromiseResponse{}, nil
 }
 
 // Implement IntraShardTransaction RPC
@@ -191,14 +196,14 @@ func (s *Server) IntraShardTransaction(ctx context.Context, req *pb.Transaction)
 }
 
 // Implement other methods as needed...
-func (s *Server) processTransaction(txn *pb.Transaction) (bool, string) {
+func (s *Server) processTransaction(txn *pb.TransactionRequest) (bool, string) {
 	// Implement your Paxos consensus algorithm here
 	// For example, initiate a Paxos instance and wait for consensus
 
 	// Simulate transaction processing
 	fmt.Printf("Server %d processing transaction %d\n", s.ServerID, txn.Id)
-	_, exists1 := s.balance[int(txn.Sender)]
-	_, exists2 := s.balance[int(txn.Sender)]
+	_, exists1 := s.balance[int(txn.From)]
+	_, exists2 := s.balance[int(txn.To)]
 	if exists1 && exists2 {
 		// Key exists in the map
 		// fmt.Println("Key exists with value:", value1)
@@ -216,7 +221,7 @@ func StartTransactionProcessor(s *Server) {
 	for txnReq := range s.transactionQueue {
 		// Process the transaction
 		fmt.Println("Starting the paxos for ", txnReq.Transaction.Id)
-		success, message := s.processTransaction(txnReq.Transaction)
+		success, message := s.processTransaction(txnReq)
 
 		// Send the result back
 		txnReq.ResultChan <- &pb.ClientTransactionResponse{

@@ -7,7 +7,7 @@ import (
 	pb "github.com/abhishekpdeshmukh/PAXOS2PC-ENGINE/proto"
 )
 
-func (s *Server) BroadCastPrepare(txn *pb.TransactionRequest) {
+func (s *Server) BroadCastPrepare(txn TransactionRequest) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 	s.ballotNum++
@@ -79,14 +79,14 @@ CollectPromises:
 	for _, serverID := range s.servers {
 		if serverID != s.ServerID {
 			// Determine missing logs for the server
-			var missingLogs []*pb.TransactionRequest
+			var missingLogs []*pb.Transaction
 			if logSize, ok := laggingServers[serverID]; ok {
 				missingLogs = s.transactionLog[logSize:]
 			} else {
-				missingLogs = []*pb.TransactionRequest{}
+				missingLogs = []*pb.Transaction{}
 			}
 
-			go func(n int, logs []*pb.TransactionRequest) {
+			go func(n int, logs []*pb.Transaction) {
 				c, ctx, conn := setUpServerServerSender(n)
 				defer conn.Close()
 
@@ -95,9 +95,9 @@ CollectPromises:
 						BallotNum: int32(s.ballotNum),
 						NodeID:    int32(s.ServerID),
 					},
-					Transactionreq: txn,
-					MissingLogs:    logs,
-					MissingLogIdx:  int32(len(s.transactionLog)),
+					Transaction:   txn.Transaction,
+					MissingLogs:   logs,
+					MissingLogIdx: int32(len(s.transactionLog)),
 				})
 				if err != nil {
 					errorCh <- err
@@ -138,7 +138,7 @@ CollectAccepts:
 				defer conn.Close()
 
 				_, err := c.Commit(ctx, &pb.CommitRequest{
-					Transactionreq: txn,
+					Transaction: txn.Transaction,
 				})
 				if err != nil {
 					fmt.Printf("Commit error on Server %d: %v\n", n, err)
@@ -148,6 +148,7 @@ CollectAccepts:
 			}(serverID)
 		}
 	}
+	s.commitTransactions(txn.Transaction)
 	fmt.Println("Transaction committed successfully.")
 }
 

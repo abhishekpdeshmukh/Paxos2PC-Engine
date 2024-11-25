@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	pb "github.com/abhishekpdeshmukh/PAXOS2PC-ENGINE/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func sendNextTransactionSet() {
@@ -220,4 +221,101 @@ func parseLeaders(leadersStr string) []int {
 		}
 	}
 	return leaders
+}
+
+func PrintDatastore() {
+	// Prompt user for cluster ID
+	var clusterID int
+	fmt.Print("Enter Cluster ID to retrieve transactions: ")
+	_, err := fmt.Scan(&clusterID)
+	if err != nil {
+		fmt.Println("Invalid input. Please enter a valid Cluster ID.")
+		return
+	}
+
+	// Get the list of servers for the specified cluster
+
+	servers, ok := clusterToServers[clusterID]
+	if !ok {
+		fmt.Printf("Cluster ID %d not found.\n", clusterID)
+		return
+	}
+
+	fmt.Printf("Retrieving committed transactions from Cluster %d...\n", clusterID)
+
+	// Iterate over servers in the cluster
+	for _, server := range servers {
+		// Get the server address from the server configuration
+		client, ctx, conn := setUpClientServerRPC(server.ServerID)
+		// Call the server's GetTransactions RPC
+		defer conn.Close()
+		response, err := client.GetTransactions(ctx, &emptypb.Empty{})
+		if err != nil {
+			fmt.Printf("Error retrieving transactions from Server %d: %v\n", server.ServerID, err)
+			continue
+		}
+
+		fmt.Printf("\nServer %d Transactions:\n", server.ServerID)
+		if len(response.Transactions) == 0 {
+			fmt.Println("No committed transactions found.")
+		} else {
+			for _, txn := range response.Transactions {
+				fmt.Printf("Transaction ID: %d, Sender: %d, Receiver: %d, Amount: %.2f, Status: %s\n",
+					txn.Id, txn.Sender, txn.Receiver, txn.Amount, txn.Status)
+			}
+		}
+	}
+}
+
+func PrintBalance() {
+	// Prompt user for Shard ID
+	var shardID int
+	fmt.Print("Enter Shard ID to retrieve balance: ")
+	_, err := fmt.Scan(&shardID)
+	if err != nil {
+		fmt.Println("Invalid input. Please enter a valid Shard ID.")
+		return
+	}
+
+	// Determine which cluster the shard ID belongs to
+	clusterID, ok := dataItemToCluster[shardID]
+	if !ok {
+		fmt.Printf("Shard ID %d not found in any cluster.\n", shardID)
+		return
+	}
+
+	// Get the list of servers for the cluster
+	servers, ok := clusterToServers[clusterID]
+	if !ok {
+		fmt.Printf("Cluster ID %d not found.\n", clusterID)
+		return
+	}
+
+	fmt.Printf("Retrieving balances for Shard ID %d from Cluster %d...\n", shardID, clusterID)
+
+	// Iterate over servers in the cluster
+	for _, server := range servers {
+		// Get the server address from the server configuration
+		client, ctx, conn := setUpClientServerRPC(server.ServerID)
+		// Call the server's GetTransactions RPC
+		defer conn.Close()
+		// Create a gRPC client connection to the server
+
+		// Call the server's GetBalances RPC
+		response, err := client.GetBalances(ctx, &pb.GetBalancesRequest{
+			ShardId: int64(shardID),
+		})
+		if err != nil {
+			fmt.Printf("Error retrieving balance from Server %d: %v\n", server.ServerID, err)
+			continue
+		}
+
+		// Assuming the response contains a single balance entry
+		if response.Balances == nil {
+			fmt.Printf("No balance found for Shard ID %d on Server %d.\n", shardID, server.ServerID)
+		} else {
+			fmt.Printf("Server %d - Shard ID: %d, Balance: %d\n",
+				server.ServerID, response.Balances.ShardId, response.Balances.Balance)
+		}
+	}
 }

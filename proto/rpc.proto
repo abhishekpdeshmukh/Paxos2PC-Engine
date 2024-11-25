@@ -11,16 +11,42 @@ service ClientServerConnection {
     // rpc Prepare(ClientPrepare) returns (ClientPrepareResponse) {}
     // rpc Commit(ClientCommit) returns (google.protobuf.Empty) {}
     // rpc Abort(ClientAbort) returns (google.protobuf.Empty) {}
+    rpc GetTransactions(google.protobuf.Empty) returns (GetTransactionsResponse);
+    rpc GetBalances(GetBalancesRequest) returns (GetBalancesResponse);
     rpc IntraShardTransaction(Transaction) returns (ClientTransactionResponse) {}
 }
 service PaxosService {
     rpc Prepare(PrepareRequest) returns (PromiseResponse){}
-    // rpc Accept(AcceptRequest) returns (AcceptedResponse){}
-    // rpc Commit(CommitRequest) returns (CommitedResponse){}
+    rpc Accept(AcceptRequest) returns (AcceptedResponse){}
+    rpc Commit(CommitRequest) returns (CommitedResponse){}
     // rpc RequestCommitBlock (CommitBlockRequest) returns (CommitBlockResponse){};
 }
 
 
+message GetTransactionsResponse {
+    repeated TransactionLog transactions = 1;
+}
+message GetBalancesRequest {
+    // Add filters if needed
+    int64 shard_id = 1;
+}
+
+message GetBalancesResponse {
+    BalanceEntry balances = 1;
+}
+
+message BalanceEntry {
+    int64 shard_id = 1;
+    int64 balance = 2;
+}
+
+message TransactionLog{
+    int32 id =1;
+    int32 sender = 2;
+    int32 receiver = 3;
+    int32 amount = 4;
+    string status = 5;
+}
 message Ballot {
     int32 ballotNum = 1;
     int32 nodeID = 2;
@@ -28,7 +54,7 @@ message Ballot {
 
 message CommitRequest{
     // Ballot ballot_number =1;
-    TransactionRequest transactionreq =1;
+    Transaction transaction =1;
 }
 message CommitedResponse {
     bool success = 1;
@@ -51,8 +77,8 @@ message PromiseResponse {
 
   message AcceptRequest {
     Ballot ballot = 1;  // The ballot number n for the proposal
-    TransactionRequest transactionreq =2;
-    repeated TransactionRequest MissingLogs =3;
+    Transaction transaction =2;
+    repeated Transaction MissingLogs =3;
      int32 MissingLogIdx = 4;          // The proposed value (e.g., a set of transactions)
 }
 

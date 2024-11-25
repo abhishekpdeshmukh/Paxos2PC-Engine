@@ -50,9 +50,11 @@ func main() {
 		case 1:
 			fmt.Println("Executing PrintBalance...")
 			// Call your PrintBalance function here
+			PrintBalance()
 		case 2:
 			fmt.Println("Executing PrintLog...")
 			// Call your PrintLog function here
+			PrintDatastore()
 		case 3:
 			fmt.Println("Executing Performance...")
 			// Call your Performance function here

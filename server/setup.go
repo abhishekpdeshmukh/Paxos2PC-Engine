@@ -5,24 +5,24 @@ import (
 	"fmt"
 
 	pb "github.com/abhishekpdeshmukh/PAXOS2PC-ENGINE/proto"
+	_ "modernc.org/sqlite"
 )
 
-func (s *Server) InitDB() {
+func InitDB(serverIDInt int) *sql.DB {
 	// Open a new SQLite database connection
-	db, err := sql.Open("sqlite3", fmt.Sprintf("node_%d.db", s.ServerID))
+	db, err := sql.Open("sqlite3", fmt.Sprintf("node_%d.db", serverIDInt))
 	if err != nil {
 		fmt.Println("Error opening database:", err)
-		return
+		return nil
 	}
-	s.db = db
 
 	// Create a transactions table if it doesn't exist
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS transactions (
         id INTEGER PRIMARY KEY,
-        set_number INTEGER,
         from_account INTEGER,
         to_account INTEGER,
-        amount INTEGER
+        amount INTEGER,
+		status STRING
     )`)
 	if err != nil {
 		fmt.Println("Error creating transactions table:", err)
@@ -36,6 +36,7 @@ func (s *Server) InitDB() {
 	if err != nil {
 		fmt.Println("Error creating shard_balances table:", err)
 	}
+	return db
 }
 
 type TransactionState struct {

@@ -30,10 +30,12 @@ type Server struct {
 	db               *sql.DB
 	isActive         bool
 	servers          []int
+	promisedBallot   int
 	balance          map[int]int
 	transactionQueue chan *TransactionRequest
+	acceptedBallot   int
 	// transactionLog   map[int32]*TransactionState
-	transactionLog []*pb.TransactionRequest
+	transactionLog []*pb.Transaction
 	ballotNum      int
 }
 
@@ -114,10 +116,13 @@ func main() {
 		isActive:         true,
 		transactionQueue: make(chan *TransactionRequest, 100), // Buffer size as needed
 		// transactionLog:   make(map[int32]*TransactionState),
-		transactionLog: make([]*pb.TransactionRequest, 100),
+		transactionLog: make([]*pb.Transaction, 100),
 		balance:        temp2Map,
 		servers:        serverList,
 		ballotNum:      0,
+		acceptedBallot: 0,
+		promisedBallot: 0,
+		db:             InitDB(serverIDInt),
 	}
 
 	// Print the filled struct
@@ -126,7 +131,6 @@ func main() {
 	// printServer(server)
 	go setUpServerServerReceiver(server)
 	go setUpClientServerReceiver(server)
-
 	fmt.Println("HIIIIIIIII")
 	// Infinite loop to keep the program running
 	for {
@@ -149,26 +153,74 @@ func (server *Server) Revive(ctx context.Context, req *emptypb.Empty) (*emptypb.
 	return &emptypb.Empty{}, nil
 }
 
-func (server *Server) Prepare(ctx context.Context, req *pb.PrepareRequest) (*pb.PromiseResponse, error) {
-	fmt.Println("Prepare alay ")
-	if req.Ballot.BallotNum >= int32(server.ballotNum) {
-		if int(req.LogSize) > len(server.transactionLog) {
-			return &pb.PromiseResponse{
-				BallotNumber: req.Ballot,
-				AcceptNum:    nil,
-				Accept_Val:   nil,
-				Lag:          true,
-			}, nil
-		} else {
-			return &pb.PromiseResponse{
-				BallotNumber: req.Ballot,
-				AcceptNum:    nil,
-				Accept_Val:   nil,
-				Lag:          false,
-			}, nil
-		}
+// Prepare handles the Prepare phase of Paxos
+func (s *Server) Prepare(ctx context.Context, req *pb.PrepareRequest) (*pb.PromiseResponse, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	incomingBallot := req.Ballot.BallotNum
+	if incomingBallot > int32(s.ballotNum) {
+		s.ballotNum = int(incomingBallot)
+		// Update promised ballot number
+		s.promisedBallot = int(incomingBallot)
+
+		fmt.Printf("Server %d: Promised ballot %d\n", s.ServerID, s.promisedBallot)
+
+		return &pb.PromiseResponse{
+			ServerId: int32(s.ServerID),
+			Logsize:  int32(len(s.transactionLog)),
+		}, nil
+	} else {
+		fmt.Printf("Server %d: Rejecting lower ballot %d\n", s.ServerID, incomingBallot)
+		return nil, fmt.Errorf("ballot number too low")
 	}
-	return &pb.PromiseResponse{}, nil
+}
+
+// Accept handles the Accept phase of Paxos
+func (s *Server) Accept(ctx context.Context, req *pb.AcceptRequest) (*pb.AcceptedResponse, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	incomingBallot := req.Ballot.BallotNum
+	if incomingBallot >= int32(s.promisedBallot) {
+		s.ballotNum = int(incomingBallot)
+		s.acceptedBallot = int(incomingBallot)
+
+		// Update transaction log with missing logs if any
+		if req.MissingLogIdx < int32(len(s.transactionLog)) {
+			s.transactionLog = s.transactionLog[:req.MissingLogIdx]
+		}
+		s.transactionLog = append(s.transactionLog, req.MissingLogs...)
+		s.transactionLog = append(s.transactionLog, req.Transaction)
+
+		fmt.Printf("Server %d: Accepted ballot %d\n", s.ServerID, s.acceptedBallot)
+
+		return &pb.AcceptedResponse{
+			ServerId: int32(s.ServerID),
+		}, nil
+	} else {
+		fmt.Printf("Server %d: Rejecting Accept with lower ballot %d\n", s.ServerID, incomingBallot)
+		return nil, fmt.Errorf("ballot number too low")
+	}
+}
+
+// Commit handles the Commit phase of Paxos
+func (s *Server) Commit(ctx context.Context, req *pb.CommitRequest) (*pb.CommitedResponse, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	// Apply the transaction to the state machine
+	s.transactionLog = append(s.transactionLog, req.Transaction)
+
+	fmt.Printf("Server %d: Committed transaction\n", s.ServerID)
+	s.balance[int(req.Transaction.Sender)] -= int(req.Transaction.Amount)
+	s.balance[int(req.Transaction.Receiver)] += int(req.Transaction.Amount)
+	s.commitTransactions(req.Transaction)
+	s.updateBalance(req.Transaction)
+	return &pb.CommitedResponse{
+		// ServerId: int32(s.ServerID),
+		Success: true,
+	}, nil
 }
 
 // Implement IntraShardTransaction RPC
@@ -196,14 +248,14 @@ func (s *Server) IntraShardTransaction(ctx context.Context, req *pb.Transaction)
 }
 
 // Implement other methods as needed...
-func (s *Server) processTransaction(txn *pb.TransactionRequest) (bool, string) {
+func (s *Server) processTransaction(txn TransactionRequest) (bool, string) {
 	// Implement your Paxos consensus algorithm here
 	// For example, initiate a Paxos instance and wait for consensus
 
 	// Simulate transaction processing
-	fmt.Printf("Server %d processing transaction %d\n", s.ServerID, txn.Id)
-	_, exists1 := s.balance[int(txn.From)]
-	_, exists2 := s.balance[int(txn.To)]
+	fmt.Printf("Server %d processing transaction %d\n", s.ServerID, txn.Transaction.Id)
+	_, exists1 := s.balance[int(txn.Transaction.Sender)]
+	_, exists2 := s.balance[int(txn.Transaction.Receiver)]
 	if exists1 && exists2 {
 		// Key exists in the map
 		// fmt.Println("Key exists with value:", value1)
@@ -221,7 +273,7 @@ func StartTransactionProcessor(s *Server) {
 	for txnReq := range s.transactionQueue {
 		// Process the transaction
 		fmt.Println("Starting the paxos for ", txnReq.Transaction.Id)
-		success, message := s.processTransaction(txnReq)
+		success, message := s.processTransaction(*txnReq)
 
 		// Send the result back
 		txnReq.ResultChan <- &pb.ClientTransactionResponse{
@@ -229,4 +281,28 @@ func StartTransactionProcessor(s *Server) {
 			Message: message,
 		}
 	}
+}
+
+// GetTransactionsRPC handles the GetTransactions RPC call
+func (s *Server) GetTransactions(ctx context.Context, req *emptypb.Empty) (*pb.GetTransactionsResponse, error) {
+	transactions, err := s.GetTransaction()
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetTransactionsResponse{
+		Transactions: transactions,
+	}, nil
+}
+
+// GetBalancesRPC handles the GetBalances RPC call
+func (s *Server) GetBalances(ctx context.Context, req *pb.GetBalancesRequest) (*pb.GetBalancesResponse, error) {
+	balances, err := s.GetBalance(int(req.ShardId))
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetBalancesResponse{
+		Balances: balances,
+	}, nil
 }

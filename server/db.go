@@ -3,8 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	_ "modernc.org/sqlite"
+
 	pb "github.com/abhishekpdeshmukh/PAXOS2PC-ENGINE/proto"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func (s *Server) commitTransactions(transaction *pb.Transaction) error {
@@ -19,9 +20,11 @@ func (s *Server) commitTransactions(transaction *pb.Transaction) error {
 		return err
 	}
 	defer stmt.Close()
+	fmt.Println("Trying For ", transaction.Id, transaction.Sender, transaction.Receiver, transaction.Amount, "Committed")
 	_, err = stmt.Exec(transaction.Id, transaction.Sender, transaction.Receiver, transaction.Amount, "Committed")
 	if err != nil {
 		tx.Rollback()
+		fmt.Println(err)
 		fmt.Println("Error Executing the transaction")
 		return err
 	}
@@ -30,42 +33,35 @@ func (s *Server) commitTransactions(transaction *pb.Transaction) error {
 }
 
 func (s *Server) updateBalance(transaction *pb.Transaction) error {
-	// Prepare the SQL statement
-	query := `UPDATE balance SET balance = ? WHERE shard_id = ?`
-	senderBalance := s.balance[int(transaction.Sender)]
-	receiverBalance := s.balance[int(transaction.Receiver)]
-	// Execute the statement
-	result, err := s.db.Exec(query, senderBalance, transaction.Sender)
-	if err != nil {
-		return fmt.Errorf("error updating balance for shard_id %d: %v", transaction.Sender, err)
-	}
+	fmt.Println("Inside Update Balance")
 
-	// Check if any rows were affected
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("error checking rows affected: %v", err)
-	}
-	if rowsAffected == 0 {
-		return fmt.Errorf("no rows updated for shard_id %d", transaction.Sender)
-	}
+	// SQL UPSERT query: Insert a new row or update an existing row
+	query := `
+        INSERT INTO balance (shard_id, balance)
+        VALUES (?, ?)
+        ON CONFLICT(shard_id) DO UPDATE SET balance = excluded.balance;
+    `
 
-	fmt.Printf("Successfully updated shard_id %d with new balance %d\n", transaction.Sender, senderBalance)
+	// Update sender balance
+	if dataItemToCluster[int(transaction.Sender)] == s.ClusterID {
+		senderBalance := s.balance[int(transaction.Sender)]
+		_, err := s.db.Exec(query, transaction.Sender, senderBalance)
+		if err != nil {
+			return fmt.Errorf("error updating or inserting balance for sender shard_id %d: %v", transaction.Sender, err)
+		}
+		fmt.Printf("Successfully updated or inserted sender shard_id %d with new balance %d\n", transaction.Sender, senderBalance)
 
-	result, err = s.db.Exec(query, receiverBalance, transaction.Receiver)
-	if err != nil {
-		return fmt.Errorf("error updating balance for shard_id %d: %v", transaction.Receiver, err)
 	}
+	if dataItemToCluster[int(transaction.Receiver)] == s.ClusterID {
+		// Update receiver balance
+		receiverBalance := s.balance[int(transaction.Receiver)]
+		_, err := s.db.Exec(query, transaction.Receiver, receiverBalance)
+		if err != nil {
+			return fmt.Errorf("error updating or inserting balance for receiver shard_id %d: %v", transaction.Receiver, err)
+		}
+		fmt.Printf("Successfully updated or inserted receiver shard_id %d with new balance %d\n", transaction.Receiver, receiverBalance)
 
-	// Check if any rows were affected
-	rowsAffected, err = result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("error checking rows affected: %v", err)
 	}
-	if rowsAffected == 0 {
-		return fmt.Errorf("no rows updated for shard_id %d", transaction.Receiver)
-	}
-
-	fmt.Printf("Successfully updated shard_id %d with new balance %d\n", transaction.Receiver, receiverBalance)
 	return nil
 }
 
@@ -120,14 +116,14 @@ func (s *Server) GetTransaction() ([]*pb.TransactionLog, error) {
 func (s *Server) GetBalance(shardID int) (*pb.BalanceEntry, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
-
+	fmt.Println("Inside Getbalance")
 	// Query to select the balance for the specified shard_id
 	query := `SELECT shard_id, balance FROM balance WHERE shard_id = ?`
-
+	fmt.Println("Post Query")
 	row := s.db.QueryRow(query, shardID)
 
-	var id int64
-	var balance int64
+	var id int
+	var balance int
 
 	// Scan the result into variables
 	err := row.Scan(&id, &balance)
@@ -140,9 +136,71 @@ func (s *Server) GetBalance(shardID int) (*pb.BalanceEntry, error) {
 
 	// Create and return the BalanceEntry object
 	balanceEntry := &pb.BalanceEntry{
-		ShardId: id,
-		Balance: balance,
+		ShardId: int64(id),
+		Balance: int64(balance),
+	}
+	fmt.Println(balanceEntry)
+	return balanceEntry, nil
+}
+
+func (s *Server) checkShard(shardID int) bool {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	fmt.Println("Checking existence of shard:", shardID)
+
+	// Query to check if the shard_id exists in the balance table
+	query := `SELECT EXISTS(SELECT 1 FROM balance WHERE shard_id = ?)`
+
+	var exists bool
+
+	// Execute the query and scan the result into the `exists` variable
+	err := s.db.QueryRow(query, shardID).Scan(&exists)
+	if err != nil {
+		fmt.Println(err)
 	}
 
-	return balanceEntry, nil
+	return exists
+}
+
+func DeleteDB(serverIDInt int) {
+	// Open the SQLite database connection
+	db, err := sql.Open("sqlite3", fmt.Sprintf("node_%d.db", serverIDInt))
+	if err != nil {
+		fmt.Println("Error opening database:", err)
+		return
+	}
+	defer db.Close()
+
+	// Begin a transaction to ensure all deletions are atomic
+	tx, err := db.Begin()
+	if err != nil {
+		fmt.Println("Error starting transaction:", err)
+		return
+	}
+
+	// Clear all records from the transactions table
+	_, err = tx.Exec("DELETE FROM transactions")
+	if err != nil {
+		fmt.Println("Error clearing transactions table:", err)
+		tx.Rollback()
+		return
+	}
+
+	// Clear all records from the balance table
+	_, err = tx.Exec("DELETE FROM balance")
+	if err != nil {
+		fmt.Println("Error clearing balance table:", err)
+		tx.Rollback()
+		return
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		fmt.Println("Error committing transaction:", err)
+		return
+	}
+
+	fmt.Println("Database records cleared successfully!")
 }

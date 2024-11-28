@@ -34,7 +34,7 @@ func main() {
 		fmt.Println("2. PrintLog")
 		fmt.Println("3. Performance")
 		fmt.Println("4. Send transaction from next Set")
-		fmt.Println("5. Exit")
+		fmt.Println("5. Clear DB")
 
 		// Get user input
 		var choice int
@@ -49,22 +49,21 @@ func main() {
 		switch choice {
 		case 1:
 			fmt.Println("Executing PrintBalance...")
-			// Call your PrintBalance function here
 			PrintBalance()
 		case 2:
 			fmt.Println("Executing PrintLog...")
-			// Call your PrintLog function here
+
 			PrintDatastore()
 		case 3:
 			fmt.Println("Executing Performance...")
-			// Call your Performance function here
+
 		case 4:
 			fmt.Println("Reading transaction from next Set...")
-			// Call your function to read the next set of transactions
+
 			sendNextTransactionSet()
 		case 5:
-			fmt.Println("Exiting...")
-			return // Exit the loop and end the program
+			fmt.Println("Clearing DB...")
+			ClearDB()
 		default:
 			fmt.Println("Invalid choice. Please enter a number between 1 and 5.")
 		}
@@ -84,6 +83,16 @@ func killInactiveServers(liveServers []int) {
 			fmt.Println(i)
 			c, ctx, conn := setUpClientServerRPC(i)
 			c.Kill(ctx, &emptypb.Empty{})
+			conn.Close()
+		}
+	}
+}
+func ClearDB() {
+	for i := range clusterIDs {
+		fmt.Println(clusterToServers[i])
+		for _, server := range clusterToServers[i] {
+			c, ctx, conn := setUpClientServerRPC(server.ServerID)
+			c.ClearDB(ctx, &emptypb.Empty{})
 			conn.Close()
 		}
 	}

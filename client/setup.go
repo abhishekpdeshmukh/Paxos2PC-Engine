@@ -81,7 +81,7 @@ func readTransactions() {
 		fmt.Printf("Leaders: %v\n", set.leaders)
 		fmt.Println("Transactions:")
 		for _, txn := range set.transactions {
-			fmt.Printf("Sender: %d, Receiver: %d, Amount: %d\n", txn.Sender, txn.Receiver, txn.Amount)
+			fmt.Printf("Id: %d Sender: %d, Receiver: %d, Amount: %d\n", txn.Id, txn.Sender, txn.Receiver, txn.Amount)
 		}
 		fmt.Println()
 	}

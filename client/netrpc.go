@@ -49,7 +49,7 @@ func setUpClientServerRPC(serverID int) (pb.ClientServerConnectionClient, contex
 	}
 
 	address := fmt.Sprintf("%s:%d", "localhost", server.Port)
-	fmt.Println("Address I am sending it to ", address)
+	// fmt.Println("Address I am sending it to ", address)
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Could not connect to server %d: %v", serverID, err)

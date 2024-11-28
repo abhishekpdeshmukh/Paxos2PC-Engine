@@ -5,6 +5,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"time"
 
 	pb "github.com/abhishekpdeshmukh/PAXOS2PC-ENGINE/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -96,78 +97,87 @@ func parseRange(rangeStr string) (int, int) {
 }
 
 func handleCrossShardTransaction(txn *pb.Transaction, clusterIDToLeaderServerID map[int]int) {
-	// Get shards for sender and receiver
-	// senderShardID := dataItemToCluster[int(txn.Sender)]
-	// receiverShardID := dataItemToCluster[int(txn.Receiver)]
+	// Similar to previous code, but adjusted to handle asynchronous responses
+	// and timeouts.
 
-	// // Get server addresses for sender and receiver shards
-	// senderServer := clusterToServers[senderShardID][0]     // Assuming first server
-	// receiverServer := clusterToServers[receiverShardID][0] // Assuming first server
+	// Channels to collect prepare responses
+	prepareCh := make(chan bool, 2)
 
-	// // Set up RPC connections
-	// senderClient, senderCtx, senderConn := setUpClientServerRPC(senderServer.ServerID)
-	// defer senderConn.Close()
+	// Send prepare requests to both clusters
+	go func() {
+		prepared := sendPrepareRequest(clusterIDToLeaderServerID[dataItemToCluster[int(txn.Sender)]], txn)
+		prepareCh <- prepared
+	}()
+	go func() {
+		prepared := sendPrepareRequest(clusterIDToLeaderServerID[dataItemToCluster[int(txn.Receiver)]], txn)
+		prepareCh <- prepared
+	}()
 
-	// receiverClient, receiverCtx, receiverConn := setUpClientServerRPC(receiverServer.ServerID)
-	// defer receiverConn.Close()
+	// Collect responses
+	preparedCount := 0
+	canCommit := true
+	for preparedCount != 2 {
+		select {
+		case prepared := <-prepareCh:
+			if !prepared {
+				canCommit = false
+			}
+			preparedCount++
+		case <-time.After(2 * time.Second):
+			fmt.Println("Prepare phase timed out.")
+			canCommit = false
+		}
+	}
 
-	// // Channels for responses
-	// prepareChan := make(chan bool, 2)
+	// Decision phase
+	if canCommit {
+		// Commit
+		go sendCommitToCluster(dataItemToCluster[int(txn.Sender)], txn)
+		go sendCommitToCluster(dataItemToCluster[int(txn.Receiver)], txn)
+		fmt.Println("Cross-shard transaction committed successfully.")
+	} else {
+		// Abort
+		go sendAbortToCluster(dataItemToCluster[int(txn.Sender)], txn)
+		go sendAbortToCluster(dataItemToCluster[int(txn.Receiver)], txn)
+		fmt.Println("Cross-shard transaction aborted.")
+	}
+}
+func sendPrepareRequest(leaderID int, txn *pb.Transaction) bool {
+	client, ctx, conn := setUpClientServerRPC(leaderID)
+	defer conn.Close()
 
-	// // Send Prepare to both shards
-	// go func() {
-	// 	resp, err := senderClient.Prepare(senderCtx, &pb.ClientPrepare{Transaction: txn})
-	// 	if err != nil {
-	// 		log.Printf("Error sending Prepare to sender shard: %v", err)
-	// 		prepareChan <- false
-	// 		return
-	// 	}
-	// 	prepareChan <- resp.CanCommit
-	// }()
-
-	// go func() {
-	// 	resp, err := receiverClient.Prepare(receiverCtx, &pb.ClientPrepare{Transaction: txn})
-	// 	if err != nil {
-	// 		log.Printf("Error sending Prepare to receiver shard: %v", err)
-	// 		prepareChan <- false
-	// 		return
-	// 	}
-	// 	prepareChan <- resp.CanCommit
-	// }()
-
-	// // Wait for responses with timeout
-	// timeout := time.After(30 * time.Second) // Adjust as needed
-	// canCommitCount := 0
-
-	// for i := 0; i < 2; i++ {
-	// 	select {
-	// 	case canCommit := <-prepareChan:
-	// 		if canCommit {
-	// 			canCommitCount++
-	// 		}
-	// 	case <-timeout:
-	// 		fmt.Println("Timeout occurred during prepare phase")
-	// 		// Send Abort to both shards
-	// 		go senderClient.Abort(senderCtx, &pb.ClientAbort{TransactionId: txn.Id})
-	// 		go receiverClient.Abort(receiverCtx, &pb.ClientAbort{TransactionId: txn.Id})
-	// 		return
-	// 	}
-	// }
-
-	// // Decide to Commit or Abort
-	// if canCommitCount == 2 {
-	// 	fmt.Println("Both shards agreed, sending Commit")
-	// 	// Send Commit to both shards
-	// 	go senderClient.Commit(senderCtx, &pb.ClientCommit{TransactionId: txn.Id})
-	// 	go receiverClient.Commit(receiverCtx, &pb.ClientCommit{TransactionId: txn.Id})
-	// } else {
-	// 	fmt.Println("One or both shards did not agree, sending Abort")
-	// 	// Send Abort to both shards
-	// 	go senderClient.Abort(senderCtx, &pb.ClientAbort{TransactionId: txn.Id})
-	// 	go receiverClient.Abort(receiverCtx, &pb.ClientAbort{TransactionId: txn.Id})
-	// }
+	resp, err := client.TwoPCPrepare(ctx, &pb.ClientPrepare{Transaction: txn})
+	if err != nil {
+		fmt.Printf("Error during prepare with Server %d: %v\n", leaderID, err)
+		return false
+	}
+	return resp.CanCommit
 }
 
+func sendCommitToCluster(clusterID int, txn *pb.Transaction) {
+	servers := clusterToServers[clusterID]
+	for _, server := range servers {
+		client, ctx, conn := setUpClientServerRPC(server.ServerID)
+		defer conn.Close()
+		_, err := client.TwoPCCommit(ctx, &pb.ClientCommit{Transaction: txn})
+		if err != nil {
+			fmt.Printf("Error during commit with Server %d: %v\n", server.ServerID, err)
+		}
+	}
+}
+
+func sendAbortToCluster(clusterID int, txn *pb.Transaction) {
+	servers := clusterToServers[clusterID]
+	for _, server := range servers {
+		fmt.Println("Sending Abort to ", server.ServerID)
+		client, ctx, conn := setUpClientServerRPC(server.ServerID)
+		defer conn.Close()
+		_, err := client.TwoPCAbort(ctx, &pb.ClientAbort{Transaction: txn})
+		if err != nil {
+			fmt.Printf("Error during abort with Server %d: %v\n", server.ServerID, err)
+		}
+	}
+}
 func sendIntraShardTransaction(txn *pb.Transaction, clusterIDToLeaderServerID map[int]int) {
 	// Get shard for the sender (since it's intra-shard, sender and receiver are in the same shard)
 	shardID := dataItemToCluster[int(txn.Sender)]
@@ -261,7 +271,7 @@ func PrintDatastore() {
 		} else {
 			for _, txn := range response.Transactions {
 				fmt.Printf("Transaction ID: %d, Sender: %d, Receiver: %d, Amount: %.2f, Status: %s\n",
-					txn.Id, txn.Sender, txn.Receiver, txn.Amount, txn.Status)
+					txn.Id, txn.Sender, txn.Receiver, float32(txn.Amount), txn.Status)
 			}
 		}
 	}
@@ -276,14 +286,14 @@ func PrintBalance() {
 		fmt.Println("Invalid input. Please enter a valid Shard ID.")
 		return
 	}
-
+	fmt.Println(shardID)
 	// Determine which cluster the shard ID belongs to
 	clusterID, ok := dataItemToCluster[shardID]
 	if !ok {
 		fmt.Printf("Shard ID %d not found in any cluster.\n", shardID)
 		return
 	}
-
+	fmt.Println(clusterID)
 	// Get the list of servers for the cluster
 	servers, ok := clusterToServers[clusterID]
 	if !ok {
@@ -315,7 +325,7 @@ func PrintBalance() {
 			fmt.Printf("No balance found for Shard ID %d on Server %d.\n", shardID, server.ServerID)
 		} else {
 			fmt.Printf("Server %d - Shard ID: %d, Balance: %d\n",
-				server.ServerID, response.Balances.ShardId, response.Balances.Balance)
+				server.ServerID, response.Balances.ShardId, int(response.Balances.Balance))
 		}
 	}
 }

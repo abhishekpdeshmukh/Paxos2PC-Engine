@@ -22,6 +22,12 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	ClientServerConnection_Kill_FullMethodName                  = "/rpc.ClientServerConnection/Kill"
 	ClientServerConnection_Revive_FullMethodName                = "/rpc.ClientServerConnection/Revive"
+	ClientServerConnection_TwoPCPrepare_FullMethodName          = "/rpc.ClientServerConnection/TwoPCPrepare"
+	ClientServerConnection_TwoPCCommit_FullMethodName           = "/rpc.ClientServerConnection/TwoPCCommit"
+	ClientServerConnection_TwoPCAbort_FullMethodName            = "/rpc.ClientServerConnection/TwoPCAbort"
+	ClientServerConnection_GetTransactions_FullMethodName       = "/rpc.ClientServerConnection/GetTransactions"
+	ClientServerConnection_GetBalances_FullMethodName           = "/rpc.ClientServerConnection/GetBalances"
+	ClientServerConnection_ClearDB_FullMethodName               = "/rpc.ClientServerConnection/ClearDB"
 	ClientServerConnection_IntraShardTransaction_FullMethodName = "/rpc.ClientServerConnection/IntraShardTransaction"
 )
 
@@ -31,9 +37,12 @@ const (
 type ClientServerConnectionClient interface {
 	Kill(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	Revive(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
-	// rpc Prepare(ClientPrepare) returns (ClientPrepareResponse) {}
-	// rpc Commit(ClientCommit) returns (google.protobuf.Empty) {}
-	// rpc Abort(ClientAbort) returns (google.protobuf.Empty) {}
+	TwoPCPrepare(ctx context.Context, in *ClientPrepare, opts ...grpc.CallOption) (*ClientPrepareResponse, error)
+	TwoPCCommit(ctx context.Context, in *ClientCommit, opts ...grpc.CallOption) (*empty.Empty, error)
+	TwoPCAbort(ctx context.Context, in *ClientAbort, opts ...grpc.CallOption) (*empty.Empty, error)
+	GetTransactions(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetTransactionsResponse, error)
+	GetBalances(ctx context.Context, in *GetBalancesRequest, opts ...grpc.CallOption) (*GetBalancesResponse, error)
+	ClearDB(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 	IntraShardTransaction(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*ClientTransactionResponse, error)
 }
 
@@ -65,6 +74,66 @@ func (c *clientServerConnectionClient) Revive(ctx context.Context, in *empty.Emp
 	return out, nil
 }
 
+func (c *clientServerConnectionClient) TwoPCPrepare(ctx context.Context, in *ClientPrepare, opts ...grpc.CallOption) (*ClientPrepareResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClientPrepareResponse)
+	err := c.cc.Invoke(ctx, ClientServerConnection_TwoPCPrepare_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *clientServerConnectionClient) TwoPCCommit(ctx context.Context, in *ClientCommit, opts ...grpc.CallOption) (*empty.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, ClientServerConnection_TwoPCCommit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *clientServerConnectionClient) TwoPCAbort(ctx context.Context, in *ClientAbort, opts ...grpc.CallOption) (*empty.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, ClientServerConnection_TwoPCAbort_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *clientServerConnectionClient) GetTransactions(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetTransactionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTransactionsResponse)
+	err := c.cc.Invoke(ctx, ClientServerConnection_GetTransactions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *clientServerConnectionClient) GetBalances(ctx context.Context, in *GetBalancesRequest, opts ...grpc.CallOption) (*GetBalancesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBalancesResponse)
+	err := c.cc.Invoke(ctx, ClientServerConnection_GetBalances_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *clientServerConnectionClient) ClearDB(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, ClientServerConnection_ClearDB_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *clientServerConnectionClient) IntraShardTransaction(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*ClientTransactionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ClientTransactionResponse)
@@ -81,9 +150,12 @@ func (c *clientServerConnectionClient) IntraShardTransaction(ctx context.Context
 type ClientServerConnectionServer interface {
 	Kill(context.Context, *empty.Empty) (*empty.Empty, error)
 	Revive(context.Context, *empty.Empty) (*empty.Empty, error)
-	// rpc Prepare(ClientPrepare) returns (ClientPrepareResponse) {}
-	// rpc Commit(ClientCommit) returns (google.protobuf.Empty) {}
-	// rpc Abort(ClientAbort) returns (google.protobuf.Empty) {}
+	TwoPCPrepare(context.Context, *ClientPrepare) (*ClientPrepareResponse, error)
+	TwoPCCommit(context.Context, *ClientCommit) (*empty.Empty, error)
+	TwoPCAbort(context.Context, *ClientAbort) (*empty.Empty, error)
+	GetTransactions(context.Context, *empty.Empty) (*GetTransactionsResponse, error)
+	GetBalances(context.Context, *GetBalancesRequest) (*GetBalancesResponse, error)
+	ClearDB(context.Context, *empty.Empty) (*empty.Empty, error)
 	IntraShardTransaction(context.Context, *Transaction) (*ClientTransactionResponse, error)
 	mustEmbedUnimplementedClientServerConnectionServer()
 }
@@ -100,6 +172,24 @@ func (UnimplementedClientServerConnectionServer) Kill(context.Context, *empty.Em
 }
 func (UnimplementedClientServerConnectionServer) Revive(context.Context, *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Revive not implemented")
+}
+func (UnimplementedClientServerConnectionServer) TwoPCPrepare(context.Context, *ClientPrepare) (*ClientPrepareResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TwoPCPrepare not implemented")
+}
+func (UnimplementedClientServerConnectionServer) TwoPCCommit(context.Context, *ClientCommit) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TwoPCCommit not implemented")
+}
+func (UnimplementedClientServerConnectionServer) TwoPCAbort(context.Context, *ClientAbort) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TwoPCAbort not implemented")
+}
+func (UnimplementedClientServerConnectionServer) GetTransactions(context.Context, *empty.Empty) (*GetTransactionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTransactions not implemented")
+}
+func (UnimplementedClientServerConnectionServer) GetBalances(context.Context, *GetBalancesRequest) (*GetBalancesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBalances not implemented")
+}
+func (UnimplementedClientServerConnectionServer) ClearDB(context.Context, *empty.Empty) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClearDB not implemented")
 }
 func (UnimplementedClientServerConnectionServer) IntraShardTransaction(context.Context, *Transaction) (*ClientTransactionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method IntraShardTransaction not implemented")
@@ -162,6 +252,114 @@ func _ClientServerConnection_Revive_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ClientServerConnection_TwoPCPrepare_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientPrepare)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServerConnectionServer).TwoPCPrepare(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientServerConnection_TwoPCPrepare_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServerConnectionServer).TwoPCPrepare(ctx, req.(*ClientPrepare))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ClientServerConnection_TwoPCCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientCommit)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServerConnectionServer).TwoPCCommit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientServerConnection_TwoPCCommit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServerConnectionServer).TwoPCCommit(ctx, req.(*ClientCommit))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ClientServerConnection_TwoPCAbort_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClientAbort)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServerConnectionServer).TwoPCAbort(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientServerConnection_TwoPCAbort_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServerConnectionServer).TwoPCAbort(ctx, req.(*ClientAbort))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ClientServerConnection_GetTransactions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServerConnectionServer).GetTransactions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientServerConnection_GetTransactions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServerConnectionServer).GetTransactions(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ClientServerConnection_GetBalances_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBalancesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServerConnectionServer).GetBalances(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientServerConnection_GetBalances_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServerConnectionServer).GetBalances(ctx, req.(*GetBalancesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ClientServerConnection_ClearDB_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClientServerConnectionServer).ClearDB(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClientServerConnection_ClearDB_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClientServerConnectionServer).ClearDB(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ClientServerConnection_IntraShardTransaction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Transaction)
 	if err := dec(in); err != nil {
@@ -196,6 +394,30 @@ var ClientServerConnection_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ClientServerConnection_Revive_Handler,
 		},
 		{
+			MethodName: "TwoPCPrepare",
+			Handler:    _ClientServerConnection_TwoPCPrepare_Handler,
+		},
+		{
+			MethodName: "TwoPCCommit",
+			Handler:    _ClientServerConnection_TwoPCCommit_Handler,
+		},
+		{
+			MethodName: "TwoPCAbort",
+			Handler:    _ClientServerConnection_TwoPCAbort_Handler,
+		},
+		{
+			MethodName: "GetTransactions",
+			Handler:    _ClientServerConnection_GetTransactions_Handler,
+		},
+		{
+			MethodName: "GetBalances",
+			Handler:    _ClientServerConnection_GetBalances_Handler,
+		},
+		{
+			MethodName: "ClearDB",
+			Handler:    _ClientServerConnection_ClearDB_Handler,
+		},
+		{
 			MethodName: "IntraShardTransaction",
 			Handler:    _ClientServerConnection_IntraShardTransaction_Handler,
 		},
@@ -206,6 +428,8 @@ var ClientServerConnection_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	PaxosService_Prepare_FullMethodName = "/rpc.PaxosService/Prepare"
+	PaxosService_Accept_FullMethodName  = "/rpc.PaxosService/Accept"
+	PaxosService_Commit_FullMethodName  = "/rpc.PaxosService/Commit"
 )
 
 // PaxosServiceClient is the client API for PaxosService service.
@@ -213,6 +437,8 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PaxosServiceClient interface {
 	Prepare(ctx context.Context, in *PrepareRequest, opts ...grpc.CallOption) (*PromiseResponse, error)
+	Accept(ctx context.Context, in *AcceptRequest, opts ...grpc.CallOption) (*AcceptedResponse, error)
+	Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*CommitedResponse, error)
 }
 
 type paxosServiceClient struct {
@@ -233,11 +459,33 @@ func (c *paxosServiceClient) Prepare(ctx context.Context, in *PrepareRequest, op
 	return out, nil
 }
 
+func (c *paxosServiceClient) Accept(ctx context.Context, in *AcceptRequest, opts ...grpc.CallOption) (*AcceptedResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AcceptedResponse)
+	err := c.cc.Invoke(ctx, PaxosService_Accept_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *paxosServiceClient) Commit(ctx context.Context, in *CommitRequest, opts ...grpc.CallOption) (*CommitedResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommitedResponse)
+	err := c.cc.Invoke(ctx, PaxosService_Commit_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PaxosServiceServer is the server API for PaxosService service.
 // All implementations must embed UnimplementedPaxosServiceServer
 // for forward compatibility.
 type PaxosServiceServer interface {
 	Prepare(context.Context, *PrepareRequest) (*PromiseResponse, error)
+	Accept(context.Context, *AcceptRequest) (*AcceptedResponse, error)
+	Commit(context.Context, *CommitRequest) (*CommitedResponse, error)
 	mustEmbedUnimplementedPaxosServiceServer()
 }
 
@@ -250,6 +498,12 @@ type UnimplementedPaxosServiceServer struct{}
 
 func (UnimplementedPaxosServiceServer) Prepare(context.Context, *PrepareRequest) (*PromiseResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Prepare not implemented")
+}
+func (UnimplementedPaxosServiceServer) Accept(context.Context, *AcceptRequest) (*AcceptedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Accept not implemented")
+}
+func (UnimplementedPaxosServiceServer) Commit(context.Context, *CommitRequest) (*CommitedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Commit not implemented")
 }
 func (UnimplementedPaxosServiceServer) mustEmbedUnimplementedPaxosServiceServer() {}
 func (UnimplementedPaxosServiceServer) testEmbeddedByValue()                      {}
@@ -290,6 +544,42 @@ func _PaxosService_Prepare_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PaxosService_Accept_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcceptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaxosServiceServer).Accept(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaxosService_Accept_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaxosServiceServer).Accept(ctx, req.(*AcceptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PaxosService_Commit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CommitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PaxosServiceServer).Commit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PaxosService_Commit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PaxosServiceServer).Commit(ctx, req.(*CommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PaxosService_ServiceDesc is the grpc.ServiceDesc for PaxosService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -300,6 +590,14 @@ var PaxosService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Prepare",
 			Handler:    _PaxosService_Prepare_Handler,
+		},
+		{
+			MethodName: "Accept",
+			Handler:    _PaxosService_Accept_Handler,
+		},
+		{
+			MethodName: "Commit",
+			Handler:    _PaxosService_Commit_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
